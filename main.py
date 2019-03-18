@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# import os
+import os
 # import logging
 import time
 from slackclient import SlackClient
@@ -14,7 +14,7 @@ def help_message():
 def smart_resp(cmd):
     if cmd.startswith('hey') is False:
         return
-    return cmd
+    return cmd[3:].lstrip()
 
 
 def handle_command(slack_client, channel, cmd):
@@ -62,6 +62,7 @@ def parse_bot_commands(slack_events):
 
 
 def main():
+    SLACK_SECRET_ID = os.environ.get('SLACK_SECRET_ID')
     slack_client = SlackClient(SLACK_SECRET_ID)
     if slack_client.rtm_connect(with_team_state=False):
         print("Starter Bot connected and running!")
