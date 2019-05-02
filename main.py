@@ -14,8 +14,60 @@ def help_message():
 '''
 
 
+def get_memberlist(user_info, members):
+    result = []
+    for member in members:
+        try:
+            result.append(user_info[member])
+        except KeyError:
+            continue
+    return result
+
+
+def get_slack_all_channels(sc):
+    channel_list = sc.api_call("channels.list", exclude_archived=1)
+    return channel_list['channels']
+
+
+def get_slack_user_list(sc, user_info):
+    user_list = sc.api_call("users.list")
+    for user in user_list['members']:
+        if user['deleted'] is True:
+            continue
+        try:
+            user_info[user['id']] = user['name']
+        except KeyError:
+            user_info[user['id']] = user['profile']['email']
+
+
+def newbie_check(sc, newbie):
+    result = []
+    user_info = dict()
+
+    result.append(newbie)
+
+    channels = get_slack_all_channels(sc)
+    get_slack_user_list(sc, user_info)
+
+    required_channels = ['bhk_general', 'bhk_random', 'bhk_log', 'bhk_india_news']
+    for ch in required_channels:
+        for channel in channels:
+            member_list = []
+            if channel['name'] == ch:
+                members = sc.api_call("channels.info", channel=channel['id'])['channel']['members']
+                member_list = get_memberlist(user_info, members)
+                if newbie not in member_list:
+                    msg = '[X] %s' % ch
+                else:
+                    msg = '[O] %s' % ch
+                print(msg)
+                result.append(msg)
+    return '\n'.join(result)
+
+
 def create_resp(cmd):
-    return '자연어를 우짠다.'
+    token = word_tokenize(cmd)
+    return '자연어를 우짠다.\n%s' % token
 
 
 def smart_resp(cmd):
@@ -25,6 +77,7 @@ def smart_resp(cmd):
             cmd.startswith('알랜') is False and
             cmd.startswith('앨런') is False):
         # 앨런을 부르는게 아닌 경우 무시
+
         return
 
     # TODO: 여기가 핵이다.
@@ -46,6 +99,14 @@ def handle_command(slack_client, channel, cmd):
             "chat.postMessage",
             channel=channel,
             text=help_message()
+        )
+    elif cmd.startswith('newbie '):
+        
+        newbie = cmd.split()[1]
+        slack_client.api_call(
+            "chat.postMessage",
+            channel=channel,
+            text=newbie_check(slack_client, newbie)
         )
 
     slack_client.api_call(
@@ -96,7 +157,7 @@ def main():
                 slack_events = slack_client.rtm_read()
                 channel, cmd = parse_bot_commands(slack_events)
                 if cmd:
-                    # print(channel, cmd)
+                    print(channel, cmd)
                     handle_command(slack_client, channel, cmd)
             except:
                 pass
